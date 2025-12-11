@@ -13,11 +13,6 @@
     Compabitility: Windows PowerShell 5.1 and PowerShell 7+
 #>
 
-param(
-    [string]$DefaultLogPath = "$env:SystemRoot\System32\LogFiles",
-    [string]$OutputPath = "C:\NPS_AzureMFA_Collect"
-)
-
 # Load required assemblies for WPF
 Add-Type -AssemblyName PresentationFramework
 Add-Type -AssemblyName System.Windows.Forms
@@ -94,6 +89,27 @@ function Write-Status {
     } else {
         Write-Host $Message
     }
+}
+
+function Get-ConfiguredNpsLogPath {
+    # 1. Try Registry
+    $regPath = "HKLM:\SYSTEM\CurrentControlSet\Services\IAS\Parameters"
+    try {
+        $val = Get-ItemProperty -Path $regPath -Name "LogFileDirectory" -ErrorAction SilentlyContinue
+        if ($val -and $val.LogFileDirectory) {
+            # Expand environment variables (e.g. %SystemRoot%)
+            $expanded = [System.Environment]::ExpandEnvironmentVariables($val.LogFileDirectory)
+            if (Test-Path $expanded) {
+                return $expanded
+            }
+        }
+    } catch {}
+
+    # 2. Fallback to default
+    $default = "$env:SystemRoot\System32\LogFiles"
+    if (Test-Path $default) { return $default }
+    
+    return $null
 }
 
 function Test-TcpConnection {
@@ -250,12 +266,24 @@ function Test-NpsMfaPrerequisites {
          $results += [PSCustomObject]@{ Check="NPS Radius Clients"; Status="Error"; Details="Failed to query clients" }
     }
 
+    # 7. Check Log Path
+    $logPath = Get-ConfiguredNpsLogPath
+    $results += [PSCustomObject]@{
+        Check = "NPS Log Folder"
+        Status = if ($logPath) { "OK" } else { "Warning" }
+        Details = if ($logPath) { $logPath } else { "Could not determine configured log path." }
+    }
+
     return $results
 }
 
 function Get-NpsLogFiles {
-    param($Path)
-    # Recursively find IN*.log files
+    # Dynamically find the path
+    $Path = Get-ConfiguredNpsLogPath
+    
+    if (-not $Path) { return $null }
+
+    # Recursively find IN*.log files (Handles subfolders like \LogFiles\NPS\)
     if (Test-Path $Path) {
         return Get-ChildItem -Path $Path -Filter "IN*.log" -Recurse | Sort-Object LastWriteTime -Descending
     }
@@ -269,10 +297,10 @@ function Parse-NpsLogs {
     )
 
     Write-Status "Locating NPS logs..."
-    $logFiles = Get-NpsLogFiles -Path $DefaultLogPath
+    $logFiles = Get-NpsLogFiles
     
     if (-not $logFiles) {
-        Write-Status "No NPS logs found in $DefaultLogPath"
+        Write-Status "No NPS logs found in configured path."
         return @()
     }
 

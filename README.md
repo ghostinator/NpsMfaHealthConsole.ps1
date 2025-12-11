@@ -6,21 +6,26 @@ This tool provides a unified dashboard to visualize authentication flows, manage
 
 <img width="805" height="655" alt="image" src="https://github.com/user-attachments/assets/886a1550-3576-4a6f-bdcf-3ee6ac0ee7ce" />
 
-
-
 ## 🚀 Features
 
-* **Health Dashboard:** Instantly checks NPS Service status, Azure MFA Extension version, Azure connectivity (TCP 443), and RADIUS Client configurations.
+* **Advanced Health Dashboard:**
+    * **Dynamic Log Detection:** Automatically finds the active NPS log folder via Registry (`HKLM\SYSTEM\CurrentControlSet\Services\IAS\Parameters`), handling custom paths and variables.
+    * **Deep Dependency Checks:** Verifies NPS Service status (plus Logon Account), Azure MFA Extension version (checking both classic and new file paths), and Azure connectivity (TCP 443).
+    * **Configuration Audit:** Lists configured RADIUS Client names and validates the Azure MFA Certificate.
 * **Log Forensics & Correlation:**
-    * Parses **NPS Text Logs** (IAS) and correlates them with **Azure MFA Event Logs** and **Windows Security Audits**.
+    * **Unified Timeline:** Aggregates data from **4 sources**:
+        1.  **NPS Text Logs (IAS/CSV)** (Recursive search)
+        2.  **Azure MFA Event Logs** (AuthN/AuthZ)
+        3.  **Windows System Logs** (NPS/IAS Service events)
+        4.  **Windows Security Audits** (Logon Success/Failure events)
     * Visualizes the entire auth flow: *Radius Request -> NPS Policy -> MFA Challenge -> Result*.
 * **Certificate Management:**
     * Identifies the active Azure MFA certificate and warns about expiration.
     * One-click cleanup of expired/superseded certificates.
     * Launcher for the official Microsoft Certificate Renewal script.
 * **Registry Tuning:**
-    * Toggle critical settings like `OVERRIDE_NUMBER_MATCHING_WITH_OTP` and `REQUIRE_USER_MATCH` via a user-friendly UI.
-    * Built-in descriptions for every registry key explaining what it fixes.
+    * User-friendly UI to manage critical troubleshooting keys like `OVERRIDE_NUMBER_MATCHING_WITH_OTP`, `ExtensionTimeOut`, `UserIdentityAttribute`, and `EnableAudit`.
+    * Intelligent "Apply" logic that creates, updates, or removes keys based on your selection.
 * **Safety First:** Includes backup features before performing resets.
 
 ## 📋 Prerequisites
@@ -29,7 +34,7 @@ This tool provides a unified dashboard to visualize authentication flows, manage
 * **Roles:** Network Policy Server (NPS) role installed.
 * **Software:** Azure MFA NPS Extension installed.
 * **PowerShell:** Version 5.1 (default on Server) or PowerShell 7+.
-* **Permissions:** Must be run as **Administrator** (Local Admin) to read logs and modify the registry.
+* **Permissions:** Must be run as **Administrator** (Local Admin) to read logs, query services, and modify the registry.
 
 ## 📥 Installation
 
@@ -45,10 +50,12 @@ This tool provides a unified dashboard to visualize authentication flows, manage
 
 ### 1. Overview Tab
 This is your landing page. It runs automatic health checks upon launch:
-* **NPS Service:** Checks if running and if the startup type is Automatic.
-* **Extension Status:** Verifies the DLLs exist and reports the installed version.
+* **NPS Service:** Checks status, startup type, and **Logon Account** (critical for certificate access).
+* **Extension Status:** Detects the DLL version in both legacy (`\Nps`) and modern (`\Extensions`) installation paths.
 * **Connectivity:** Tests TCP connectivity to `adnotifications.windowsazure.com`.
-* **Certificate:** Checks the Local Machine store for a valid Azure MFA certificate.
+* **Certificate:** Checks the Local Machine store for a valid Azure MFA certificate and displays the Tenant ID.
+* **Radius Clients:** Lists the names of configured RADIUS clients (firewalls/gateways) to verify authorization.
+* **Active Log Folder:** Shows exactly where the script is looking for text logs.
 
 ### 2. Logs & Correlation Tab
 The core troubleshooting engine.
@@ -56,6 +63,7 @@ The core troubleshooting engine.
 2.  Set the **Lookback (Minutes)** (default is 30).
 3.  Click **Analyze Auth Flow**.
 4.  **The Result:** A merged timeline showing exactly where authentication failed (e.g., "MFA Challenge Sent" followed by "Access Denied" or "NPS Discard").
+    * **Detail View:** Click any row to see the raw log message in a scrollable text box below.
 
 ### 3. Certificates Tab
 Manage the self-signed certificates used by the extension to talk to Azure.
@@ -69,9 +77,13 @@ Easily configure advanced settings for the extension.
 * **Dropdowns:** Select valid values (TRUE/FALSE, Timeouts, etc.).
 * **Apply Configuration:** Writes the changes to `HKLM\SOFTWARE\Microsoft\AzureMfa` and restarts the service if needed.
 
-**Common Fixes:**
-* **VPNs not showing Number Match:** Set `OVERRIDE_NUMBER_MATCHING_WITH_OTP` = `TRUE`.
-* **UPN Mismatch:** Set `REQUIRE_USER_MATCH` = `FALSE` if your on-prem usernames don't match Cloud UPNs.
+**Supported Troubleshooting Keys:**
+* `OVERRIDE_NUMBER_MATCHING_WITH_OTP`: Essential for VPNs not supporting Number Match UI.
+* `REQUIRE_USER_MATCH`: Fixes issues where on-prem SAMAccountName doesn't match Cloud UPN.
+* `ExtensionTimeOut`: Increases wait time to prevent NPS Discards during MFA prompts.
+* `UserIdentityAttribute`: Changes the AD attribute used for matching users.
+* `EnableAudit`: Turns on verbose logging for Microsoft Support.
+* `IpWhitelist`: Bypasses MFA for specific IPs (Legacy).
 
 ### 5. Start Fresh / Advanced
 Use this tab if you need to perform a "hard reset" of the configuration.

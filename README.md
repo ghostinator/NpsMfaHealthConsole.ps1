@@ -4,7 +4,8 @@ A comprehensive, GUI-based PowerShell tool designed to troubleshoot, audit, and 
 
 This tool provides a unified dashboard to visualize authentication flows, manage certificates, and toggle critical registry settings without needing to dig through Event Viewer or the Registry Editor manually.
 
-<img width="1276" height="903" alt="Microsoft Edge 2025-12-11 10 29 49" src="https://github.com/user-attachments/assets/a7fd0547-ba5b-4e6d-979a-385087f12deb" />
+<img width="805" height="655" alt="image" src="https://github.com/user-attachments/assets/886a1550-3576-4a6f-bdcf-3ee6ac0ee7ce" />
+
 
 
 ## 🚀 Features
